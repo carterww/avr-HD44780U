@@ -1,97 +1,14 @@
-#ifndef HD44780U_H
-#define HD44780U_H
+#ifndef _HD44780_COMMANDS_H_
+#define _HD44780_COMMANDS_H_
 
-#include <stdint.h>
-#include <avr/io.h>
-
-/* Various modes to bit value */
-#define LCD_REGISTER_COMMAND 0
-#define LCD_REGISTER_DATA 1
-#define LCD_WRITE_MODE 0
-#define LCD_READ_MODE 1
-
-/* When sending a command/data to the LCD, the EN pin
- * must be pulsed. If we pulse too fast, the command/data
- * may get ignored, so we must delay.
- * NOTE: This value may need to be changed under certain conditions.
+/* File that holds all the commands that can be sent to the LCD
+ * and some higher level functions that use these commands. The
+ * lowest level functions are in write.h and read.h.
  */
-#define LCD_ENABLE_PULSE_DELAY_US 1
 
-/* Bits used for specific commands with flags set to 0.
- * These should be OR'd with user provided flags
- * to send the command with proper parameters.
- */
-#define LCD_FUNC_CLEAR_DISPLAY 0x01
-#define LCD_FUNC_RETURN_HOME 0x02
-#define LCD_FUNC_ENTRY_MODE_SET 0x04
-#define LCD_FUNC_DISPLAY_CONTROL 0x08
-#define LCD_FUNC_DORC_SHIFT 0x10          // DORC = display or cursor
-#define LCD_FUNC_FUNCTION_SET 0x20
-#define LCD_FUNC_SET_CGRAM_ADDRESS 0x40
-#define LCD_FUNC_SET_DDRAM_ADDRESS 0x80
+#include "HD44780U/defs.h"
 
-/* lcd_entry_mode_set flags to combine with
- * LCD_FUNC_ENTRY_MODE_SET
- */
-#define LCD_ENTRY_MODE_FLAG_NO_SHIFT 0x00
-#define LCD_ENTRY_MODE_FLAG_SHIFT 0x01
-#define LCD_ENTRY_MODE_FLAG_SHIFT_DECREMENT 0x00
-#define LCD_ENTRY_MODE_FLAG_SHIFT_INCREMENT 0x02
-
-/* lcd_display_control flags to combine with
- * LCD_FUNC_DISPLAY_CONTROL
- */
-#define LCD_DISPLAY_CONTROL_FLAG_DISPLAY_OFF 0x00
-#define LCD_DISPLAY_CONTROL_FLAG_DISPLAY_ON 0x04
-#define LCD_DISPLAY_CONTROL_FLAG_CURSOR_OFF 0x00
-#define LCD_DISPLAY_CONTROL_FLAG_CURSOR_ON 0x02
-#define LCD_DISPLAY_CONTROL_FLAG_BLINK_OFF 0x00
-#define LCD_DISPLAY_CONTROL_FLAG_BLINK_ON 0x01
-
-/* lcd_cursor_shift flags to combine with
- * LCD_FUNC_DORC_SHIFT
- */
-#define LCD_DORC_SHIFT_FLAG_DISPLAY 0x08
-#define LCD_DORC_SHIFT_FLAG_CURSOR 0x00
-#define LCD_DORC_SHIFT_FLAG_RIGHT 0x04
-#define LCD_DORC_SHIFT_FLAG_LEFT 0x00
-
-/* lcd_function_set flags to combine with
- * LCD_FUNC_FUNCTION_SET
- */
-#define LCD_FUNCTION_SET_FLAG_8BIT_MODE 0x10
-#define LCD_FUNCTION_SET_FLAG_4BIT_MODE 0x00
-#define LCD_FUNCTION_SET_FLAG_2LINE 0x08
-#define LCD_FUNCTION_SET_FLAG_1LINE 0x00
-#define LCD_FUNCTION_SET_FLAG_5x10_DOTS 0x04
-#define LCD_FUNCTION_SET_FLAG_5x8_DOTS 0x00
-
-/* DDRAM address values. Each line has 27 (0x1B) characters.
- * Add the offset to line's home to reach that character's
- * address
- */
-#define LCD_DDRAM_ADDRESS_FIRST_LINE_HOME 0x0
-#define LCD_DDRAM_ADDRESS_SECOND_LINE_HOME 0x28
-
-/* Settings parameters for writing strings */
-#define LCD_SETTINGS_IGNORE_NEW_LINE 0x0
-#define LCD_SETTINGS_WRAP_NEW_LINE 0x2
-
-/* Struct to store information needed for translating GPIO
- * pins to the LCD's data and control pin. This struct will
- * be passed into each function.
- */
-struct lcd_pins {
-    volatile uint8_t* data_port[8];
-    volatile uint8_t* rs_port;
-    volatile uint8_t* rw_port;
-    volatile uint8_t* en_port;
-
-    uint8_t data_pin[8];
-    uint8_t rs_pin;
-    uint8_t rw_pin;
-    uint8_t en_pin;
-};
+/* START HIGHER LEVEL FUNCTIONS */
 
 /* Initializes the LCD by setting certain parameters as outlined below:
  * 1. Function Set: Sets the LCD to 4 or 8 bit mode, number of
@@ -126,6 +43,25 @@ void lcd_write_string(struct lcd_pins *pins, char *str);
  * @param y_pos: vertical position.
  */
 void lcd_set_cursor(struct lcd_pins *pins, uint8_t x_pos, uint8_t y_pos);
+
+/* Resets the LCD via the reset command sequence outlined on page 45 or 46
+ * of the datasheet. Bit mode is required here because setting the lcd
+ * to 4 bit mode calls for an extra command. Called in lcd_init.
+ * @param pins: See the struct lcd_pins
+ * @param bit_mode: Either LCD_8BIT_MODE or LCD_4BIT_MODE
+ */
+void lcd_reset(struct lcd_pins *pins, uint8_t bit_mode);
+
+/* Polls the busy flag and waits while the LCD is busy.
+ * TODO: Might just switch to a delay instead of polling
+ * because max execution time is 1.64ms with the average being
+ * about 41 us.
+ */
+void lcd_wait_busy(struct lcd_pins *pins);
+
+/* END HIGHER LEVEL FUNCTIONS */
+
+/* START LOWER LEVEL FUNCTIONS (DIRECT COMMANDS) */
 
 /* Clears the display and sets the cursor to the home position (DDRAM address 0x0). */
 void lcd_clear_display(struct lcd_pins *pins);
@@ -180,33 +116,6 @@ void lcd_dorc_shift(struct lcd_pins *pins, uint8_t display_or_cursor, uint8_t di
 void lcd_function_set(struct lcd_pins *pins, uint8_t bit_mode, uint8_t line_num,
         uint8_t dot_count);
 
-/* Resets the LCD via the reset command sequence outlined on page 45 or 46
- * of the datasheet. Bit mode is required here because setting the lcd
- * to 4 bit mode calls for an extra command. Called in lcd_init.
- * @param pins: See the struct lcd_pins
- * @param bit_mode: Either LCD_8BIT_MODE or LCD_4BIT_MODE
- */
-void lcd_reset(struct lcd_pins *pins, uint8_t bit_mode);
+/* END LOWER LEVEL FUNCTIONS (DIRECT COMMANDS) */
 
-/* Polls the busy flag and waits while the LCD is busy. */
-void lcd_wait_busy(struct lcd_pins *pins);
-
-/* Function used to write a command/data in 4 bit mode */
-void lcd_write_4bit(struct lcd_pins *pins, uint8_t byte, uint8_t rs);
-
-/* Function used to write a command/data in 8 bit mode */
-void lcd_write_8bit(struct lcd_pins *pins, uint8_t byte, uint8_t rs);
-
-/* Function used to write a command/data in 4 bit mode */
-uint8_t lcd_read_4bit(struct lcd_pins *pins, uint8_t rs);
-
-/* Function used to write a command/data in 8 bit mode */
-uint8_t lcd_read_8bit(struct lcd_pins *pins, uint8_t rs);
-
-/* Reads the busy flag of the LCD (D7).
- * NOTE: Address counter register value is in DB0-DB6, so make sure to
- * only check DB7 if bitwisign for BF.
- */
-uint8_t lcd_read_busy_flag(struct lcd_pins *pins);
-
-#endif
+#endif // _HD44780_COMMANDS_H_

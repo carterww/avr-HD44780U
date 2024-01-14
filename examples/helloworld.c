@@ -1,4 +1,6 @@
-#include "HD44780U.h"
+#include "HD44780U/defs.h"
+#include "HD44780U/commands.h"
+
 #include <avr/io.h>
 #include <util/delay.h>
 
@@ -7,22 +9,19 @@ static struct lcd_pins pins;
 
 int main(void)
 {
-    /* Set the pins and ports (They can all be on different ports) */
-    pins.rs_port = &PORTD;
-    pins.rw_port = &PORTD;
-    pins.en_port = &PORTD;
-    pins.rs_pin = PD5;
-    pins.rw_pin = PD6;
-    pins.en_pin = PD7;
-    for (int i = 0; i < 8; i++) {
-        if (i < 4) {
-            pins.data_port[i] = 0;
-            pins.data_pin[i] = 0;
-        } else {
-            pins.data_port[i] = &PORTB;
-            pins.data_pin[i] = PB0 + (i - 4);
-        }
-    }
+    /* Set the pins and ports (They can all be on different ports).
+     * If using 4 bit mode, leave first 4 ports and pins as 0.
+     */
+    pins = (struct lcd_pins) {
+        .rs_port = &PORTD,
+        .rw_port = &PORTD,
+        .en_port = &PORTD,
+        .rs_pin = PD5,
+        .rw_pin = PD6,
+        .en_pin = PD7,
+        .data_port = { 0, 0, 0, 0, &PORTB, &PORTB, &PORTB, &PORTB },
+        .data_pin = { 0, 0, 0, 0, PB0, PB1, PB2, PB3 }
+    };
 
     /* Init the LCD with all the params */
     lcd_init(&pins, LCD_FUNCTION_SET_FLAG_4BIT_MODE, LCD_FUNCTION_SET_FLAG_2LINE,

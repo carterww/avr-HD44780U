@@ -1,7 +1,8 @@
-main
+.cache/
+build/
+lib/
 *.hex
 *.elf
 *.o
-build/
-.cache/
+*.a
 compile_commands.json
