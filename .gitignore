@@ -1,0 +1,7 @@
+main
+*.hex
+*.elf
+*.o
+build/
+.cache/
+compile_commands.json
